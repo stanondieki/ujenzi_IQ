@@ -9,14 +9,10 @@ UjenziIQ is a real-time construction project health monitoring and communication
 - Role-based updates for managers and supervisors
 
 ## Tech Stack
-- Flutter (or React/Next.js, etc.)
+-  React/Next.js
 - Firebase (Auth, Firestore, Functions)
-- Twilio (for SMS)
+- Africastalking (for SMS)
 
-## Getting Started
-1. Clone the repo
-2. Run `npm install` / `flutter pub get`
-3. Set up Firebase config
-4. Run the project
+
 
 
