@@ -16,7 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const SettingsPage = () => {
-  const { user, userData, refreshUserData } = useAuth();
+  const { currentUser, userData, refreshUserData } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -52,9 +52,8 @@ const SettingsPage = () => {
     setSuccess(false);
     setError('');
 
-    try {
-      if (user?.uid) {
-        const userDocRef = doc(db, 'users', user.uid);
+    try {      if (currentUser?.uid) {
+        const userDocRef = doc(db, 'users', currentUser.uid);
         await updateDoc(userDocRef, {
           displayName: formData.displayName,
           phoneNumber: formData.phoneNumber,
@@ -106,8 +105,7 @@ const SettingsPage = () => {
               </div>
               <h2 className="text-xl font-bold text-gray-800">
                 {userData?.displayName || 'User Profile'}
-              </h2>
-              <p className="text-gray-500 mt-1">{user?.email}</p>
+              </h2>              <p className="text-gray-500 mt-1">{currentUser?.email}</p>
               <div className="mt-3 inline-flex items-center bg-green-100 text-green-800 text-xs font-medium px-3 py-1.5 rounded-full">
                 <ShieldCheckIcon className="h-4 w-4 mr-1" />
                 {userData?.role || 'User'}

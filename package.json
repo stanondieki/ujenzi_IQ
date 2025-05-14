@@ -3,17 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@next/swc-win32-x64-msvc": "^15.3.2",
+    "@tailwindcss/forms": "^0.5.7",
     "africastalking": "^0.7.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "firebase": "^11.6.0",
+    "firebase": "^10.8.0",
     "framer-motion": "^12.11.2",
     "lucide-react": "^0.510.0",
     "next": "15.3.1",
@@ -29,9 +31,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
+    "eslint": "^8.57.0",
     "eslint-config-next": "15.3.1",
-    "tailwindcss": "^4",
+    "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }
 }
