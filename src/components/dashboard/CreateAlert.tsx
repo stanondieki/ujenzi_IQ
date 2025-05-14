@@ -1,19 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   XMarkIcon, 
   PaperAirplaneIcon, 
-  ExclamationTriangleIcon 
+  ExclamationTriangleIcon,
+  DocumentDuplicateIcon,
+  ClipboardIcon
 } from '@heroicons/react/24/outline';
 
 interface CreateAlertProps {
   isOpen: boolean;
   onClose: () => void;
-  projectSiteCode?: string; // Optional: For pre-selecting a project
-  onSuccess?: () => void; // Optional: Callback after successful creation
+  projectSiteCode?: string;
+  onSuccess?: () => void;
 }
+
+const MESSAGE_TEMPLATES = {
+  DELAY: [
+    "DELAY: {hours}hr delay at {site}. Cause: {reason}. New ETA: {time}",
+    "PROGRESS: {site} delayed by {hours}hrs due to {reason}. {impact} affected.",
+  ],
+  INCIDENT: [
+    "INCIDENT: {type} at {site}. Status: {status}. Action: {action}",
+    "URGENT: {severity} incident at {site}. {details}. Response team: {team}",
+  ]
+};
+
+const SMS_MAX_LENGTH = 160;
 
 const CreateAlert: React.FC<CreateAlertProps> = ({ 
   isOpen, 
@@ -26,18 +41,14 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
   const [statusType, setStatusType] = useState('DELAY');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [projects, setProjects] = useState<{id: string, siteCode: string, name: string}[]>([]);
+  const [error, setError] = useState('');  const [projects, setProjects] = useState<{id: string, siteCode: string, name: string}[]>([]);
+  const [previewMode, setPreviewMode] = useState(false);
   
-  // If not admin or supervisor, they shouldn't be able to use this component
-  if (userData?.role !== 'admin' && userData?.role !== 'supervisor') {
-    return null;
-  }
-  
-  // Fetch projects if needed (implement this)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  React.useEffect(() => {
+  // Fetch projects if needed
+  useEffect(() => {
     const fetchProjects = async () => {
+      if (!isOpen || projectSiteCode || projects.length > 0) return;
+      
       try {
         const projectsRef = collection(db, 'projects');
         const projectsSnapshot = await getDocs(projectsRef);
@@ -54,10 +65,24 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
       }
     };
     
-    if (isOpen && !projectSiteCode && projects.length === 0) {
-      fetchProjects();
-    }
+    fetchProjects();
   }, [isOpen, projectSiteCode, projects.length]);
+
+  const getSelectedProject = () => {
+    return projects.find(p => p.siteCode === siteCode);
+  };
+
+  const handleTemplateSelect = (template: string) => {
+    setMessage(template);
+  };
+
+  const validateSMSFormat = (text: string): boolean => {
+    if (text.length > SMS_MAX_LENGTH) {
+      setError(`Message exceeds ${SMS_MAX_LENGTH} characters (current: ${text.length})`);
+      return false;
+    }
+    return true;
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,19 +91,37 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
       setError('Please fill all required fields');
       return;
     }
+
+    if (!validateSMSFormat(message)) {
+      return;
+    }
     
     try {
       setLoading(true);
       setError('');
       
+      const selectedProject = getSelectedProject();
+      
       // Create the alert document in Firestore
-      await addDoc(collection(db, 'alerts'), {
+      const alertRef = await addDoc(collection(db, 'alerts'), {
         siteCode,
+        projectName: selectedProject?.name,
         statusType,
         message,
         timestamp: serverTimestamp(),
         createdBy: userData?.uid,
-        creatorRole: userData?.role
+        creatorRole: userData?.role,
+        smsStatus: 'pending'
+      });
+
+      // Trigger SMS sending cloud function
+      // The actual sending is handled by the backend to keep API keys secure
+      await addDoc(collection(db, 'sms_queue'), {
+        alertId: alertRef.id,
+        message,
+        siteCode,
+        statusType,
+        timestamp: serverTimestamp()
       });
       
       // Reset form
@@ -100,8 +143,21 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
     }
   };
   
+  const getCharacterCount = () => {
+    return `${message.length}/${SMS_MAX_LENGTH}`;
+  };
+  const copyTemplate = (template: string) => {
+    navigator.clipboard.writeText(template);
+  };
+
+  // Early returns should be at the start of render
   if (!isOpen) return null;
   
+  // If not admin or supervisor, they shouldn't be able to use this component
+  if (userData?.role !== 'admin' && userData?.role !== 'supervisor') {
+    return null;
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
@@ -109,7 +165,7 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
         <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
           <h2 className="text-white text-lg font-bold flex items-center">
             <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
-            Create New Alert
+            Create New Site Alert
           </h2>
           <button 
             onClick={onClose}
@@ -130,7 +186,7 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
           {/* Site Code Selector */}
           <div className="mb-4">
             <label htmlFor="siteCode" className="block text-gray-700 font-medium mb-2">
-              Project Site Code*
+              Project Site*
             </label>
             {projectSiteCode ? (
               <input 
@@ -140,21 +196,20 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
                 disabled
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
               />
-            ) : (
-              <select
-                id="siteCode"
-                value={siteCode}
-                onChange={(e) => setSiteCode(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="">Select a project</option>
-                {projects.map(project => (
-                  <option key={project.id} value={project.siteCode}>
-                    {project.name} ({project.siteCode})
-                  </option>
-                ))}
-              </select>
+            ) : (              <select
+                  id="siteCode"
+                  value={siteCode}
+                  onChange={(e) => setSiteCode(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select a project</option>
+                  {projects.map(project => (
+                    <option key={project.id} value={project.siteCode}>
+                      {project.name} ({project.siteCode})
+                    </option>
+                  ))}
+                </select>
             )}
           </div>
           
@@ -171,8 +226,10 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
                   type="radio"
                   name="statusType"
                   value="DELAY"
-                  checked={statusType === 'DELAY'}
-                  onChange={() => setStatusType('DELAY')}
+                  checked={statusType === 'DELAY'}                  onChange={() => {
+                    setStatusType('DELAY');
+                    setMessage('');
+                  }}
                   className="hidden"
                 />
                 <span className="w-3 h-3 inline-block rounded-full bg-amber-500 mr-2"></span>
@@ -186,8 +243,10 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
                   type="radio"
                   name="statusType"
                   value="INCIDENT"
-                  checked={statusType === 'INCIDENT'}
-                  onChange={() => setStatusType('INCIDENT')}
+                  checked={statusType === 'INCIDENT'}                  onChange={() => {
+                    setStatusType('INCIDENT');
+                    setMessage('');
+                  }}
                   className="hidden"
                 />
                 <span className="w-3 h-3 inline-block rounded-full bg-red-500 mr-2"></span>
@@ -195,20 +254,68 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
               </label>
             </div>
           </div>
+
+          {/* Message Templates */}
+          <div className="mb-4">
+            <label className="block text-gray-700 font-medium mb-2">
+              Message Templates
+            </label>
+            <div className="space-y-2">
+              {MESSAGE_TEMPLATES[statusType as keyof typeof MESSAGE_TEMPLATES].map((template, index) => (
+                <div key={index} 
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleTemplateSelect(template)}
+                >
+                  <p className="text-sm text-gray-600">{template}</p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyTemplate(template);
+                    }}
+                    className="p-1 hover:bg-gray-200 rounded"
+                  >
+                    <ClipboardIcon className="h-4 w-4 text-gray-500" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
           
           {/* Message */}
           <div className="mb-6">
             <label htmlFor="message" className="block text-gray-700 font-medium mb-2">
-              Alert Message*
+              Alert Message* <span className="text-sm text-gray-500">({getCharacterCount()})</span>
             </label>
-            <textarea
-              id="message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
-              placeholder="Describe the issue or alert details..."
-              required
-            />
+            <div className="relative">
+              <textarea
+                id="message"
+                value={message}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  validateSMSFormat(e.target.value);
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[100px] ${
+                  message.length > SMS_MAX_LENGTH ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Replace the {placeholders} in the template or write your message..."
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setPreviewMode(!previewMode)}
+                className="absolute top-2 right-2 p-1 hover:bg-gray-200 rounded text-gray-500"
+                title="Toggle SMS Preview"
+              >
+                <DocumentDuplicateIcon className="h-4 w-4" />
+              </button>
+            </div>
+            {previewMode && (
+              <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-sm font-medium text-gray-700">SMS Preview:</p>
+                <p className="text-sm text-gray-600 mt-1">{message}</p>
+              </div>
+            )}
           </div>
           
           {/* Submit Button */}
@@ -223,15 +330,15 @@ const CreateAlert: React.FC<CreateAlertProps> = ({
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              disabled={loading || message.length > SMS_MAX_LENGTH}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
               ) : (
                 <PaperAirplaneIcon className="h-4 w-4 mr-2" />
               )}
-              Create Alert
+              Send Alert
             </button>
           </div>
         </form>

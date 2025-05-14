@@ -12,7 +12,8 @@ import {
   XMarkIcon,
   Cog6ToothIcon,
   UserCircleIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 
 const Navbar: React.FC = () => {
@@ -63,40 +64,51 @@ const Navbar: React.FC = () => {
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'Projects', href: '/projects', icon: DocumentTextIcon },
     ...(userData?.role === 'admin' ? [
-      { name: 'Stakeholders', href: '/stakeholders', icon: UserGroupIcon }
+      { name: 'Stakeholders', href: '/stakeholders', icon: UserGroupIcon },
+      { name: 'Analytics', href: '/analytics', icon: ChartBarIcon }
     ] : [])
   ];
 
   // Sample notifications for the dropdown
   const notifications = [
-    { id: 1, title: 'Project update', message: 'New comment on Project A', time: '5m ago', isRead: false },
-    { id: 2, title: 'Task completed', message: 'Foundation assessment complete', time: '1h ago', isRead: false },
-    { id: 3, title: 'New document', message: 'Contract documents uploaded', time: '3h ago', isRead: true },
+    { 
+      id: 1, 
+      title: 'Project update', 
+      message: 'New comment on Project A', 
+      time: '5m ago', 
+      isRead: false,
+      type: 'update'
+    },
+    { 
+      id: 2, 
+      title: 'Task completed', 
+      message: 'Foundation assessment complete', 
+      time: '1h ago', 
+      isRead: false,
+      type: 'success'
+    },
+    { 
+      id: 3, 
+      title: 'New document', 
+      message: 'Contract documents uploaded', 
+      time: '3h ago', 
+      isRead: true,
+      type: 'info'
+    }
   ];
   
-  return (
-    <nav 
-      className={`fixed top-0 right-0 left-0 z-30 transition-all duration-500 ${
-        isScrolled 
-          ? 'bg-white/95 backdrop-blur-sm text-gray-800 shadow-lg' 
-          : 'bg-gradient-to-r from-blue-700 to-blue-500 text-white'
-      }`}
+  return (    <nav 
+      className="fixed top-0 right-0 left-0 z-30 bg-white border-b border-gray-200"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and Brand */}
-          <div className="flex items-center">
-            <Link href="/" className="flex-shrink-0 flex items-center group">
-              <div className={`h-9 w-9 rounded-lg ${isScrolled ? 'bg-blue-600' : 'bg-white'} flex items-center justify-center mr-3 shadow-md transition-all duration-300 group-hover:rotate-3`}>
-                <span className={`font-bold text-xl ${isScrolled ? 'text-white' : 'text-blue-600'}`}>U</span>
+          <div className="flex items-center">            <Link href="/" className="flex items-center">
+              <div className="h-9 w-9 rounded bg-blue-600 flex items-center justify-center mr-3">
+                <span className="font-bold text-xl text-white">U</span>
               </div>
-              <div className="flex flex-col">
-                <span className={`text-xl font-bold transition-all duration-300 ${isScrolled ? 'text-blue-600' : 'text-white'}`}>
-                  UjenziIQ
-                </span>
-                <span className={`text-xs uppercase tracking-wider font-medium ${isScrolled ? 'text-blue-400' : 'text-blue-100'}`}>
-                  Build Smart
-                </span>
+              <div>
+                <span className="text-xl font-bold text-gray-900">UjenziIQ</span>
               </div>
             </Link>
           </div>
@@ -108,20 +120,14 @@ const Navbar: React.FC = () => {
                 const isActive = router.pathname === link.href || router.pathname.startsWith(`${link.href}/`);
                 const Icon = link.icon;
                 
-                return (
-                  <Link
+                return (                  <Link
                     key={link.name}
                     href={link.href}
                     className={`
-                      px-4 py-2 rounded-full text-sm font-medium flex items-center
-                      transition-all duration-300 mx-1 
+                      px-3 py-2 text-sm font-medium flex items-center
                       ${isActive 
-                        ? isScrolled 
-                          ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100' 
-                          : 'bg-white/20 text-white backdrop-blur-sm' 
-                        : isScrolled 
-                          ? 'text-gray-600 hover:bg-gray-50 hover:text-blue-600' 
-                          : 'text-blue-50 hover:bg-white/10'}
+                        ? 'text-blue-600 border-b-2 border-blue-600' 
+                        : 'text-gray-600 hover:text-blue-600'}
                     `}
                   >
                     <Icon className={`h-4 w-4 ${isActive ? 'mr-1.5' : 'mr-1'} ${isActive && !isScrolled ? 'text-white' : ''}`} />
@@ -133,14 +139,9 @@ const Navbar: React.FC = () => {
           </div>
           
           {/* Mobile menu button */}
-          <div className="flex md:hidden">
-            <button
+          <div className="flex md:hidden">            <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className={`p-2 rounded-full ${
-                isScrolled 
-                  ? 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' 
-                  : 'text-white hover:bg-white/10'
-              }`}
+              className="p-2 text-gray-600 hover:text-blue-600"
               aria-label="Toggle mobile menu"
             >
               {isMobileMenuOpen ? (
@@ -154,23 +155,18 @@ const Navbar: React.FC = () => {
           {/* User Profile and Notifications */}
           <div className="hidden md:flex items-center space-x-2">
             {/* Notification Bell */}
-            <div className="relative" ref={notificationsRef}>
-              <button 
+            <div className="relative" ref={notificationsRef}>              <button 
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                className={`p-2 rounded-full relative transition-all duration-200 ${
-                  isScrolled 
-                    ? 'text-gray-600 hover:bg-blue-50 hover:text-blue-600' 
-                    : 'text-white hover:bg-white/10'
-                }`}
+                className="p-2 text-gray-600 hover:text-blue-600 relative"
                 aria-label="Notifications"
               >
                 <BellIcon className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-red-500 rounded-full animate-pulse"></span>
+                <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
               </button>
               
               {/* Notifications dropdown */}
               {isNotificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-100 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-100 overflow-hidden transform transition-all duration-200 ease-out">
                   <div className="px-4 py-2 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="font-semibold text-gray-900">Notifications</h3>
                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
@@ -182,7 +178,9 @@ const Navbar: React.FC = () => {
                     {notifications.map((notification) => (
                       <div 
                         key={notification.id}
-                        className={`px-4 py-3 hover:bg-gray-50 transition-colors duration-150 border-l-4 ${notification.isRead ? 'border-transparent' : 'border-blue-500'}`}
+                        className={`px-4 py-3 hover:bg-gray-50 transition-colors duration-150 border-l-4 ${
+                          notification.isRead ? 'border-transparent' : 'border-blue-500'
+                        }`}
                       >
                         <div className="flex justify-between">
                           <p className="text-sm font-medium text-gray-900">{notification.title}</p>
@@ -203,16 +201,9 @@ const Navbar: React.FC = () => {
             </div>
             
             {/* User Profile Dropdown */}
-            <div className="relative" ref={profileMenuRef}>
-              <button
+            <div className="relative" ref={profileMenuRef}>              <button
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                className={`
-                  flex items-center space-x-2 p-1.5 rounded-full
-                  transition-all duration-200
-                  ${isScrolled 
-                    ? 'hover:bg-blue-50 text-gray-700' 
-                    : 'hover:bg-white/10 text-white'}
-                `}
+                className="flex items-center space-x-2 p-1.5 text-gray-700 hover:text-blue-600"
                 aria-label="User menu"
               >
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center overflow-hidden ${
@@ -360,6 +351,7 @@ const Navbar: React.FC = () => {
           
           <div className={`border-t my-2 ${isScrolled ? 'border-gray-200' : 'border-blue-600'}`}></div>
           
+          {/* Mobile user profile */}
           <div className={`px-4 py-3 rounded-lg ${isScrolled ? 'bg-white' : 'bg-blue-800'}`}>
             <div className="flex items-center">
               <div className={`h-10 w-10 rounded-full mr-3 flex items-center justify-center overflow-hidden ${
