@@ -17,7 +17,7 @@ import { auth, db } from '../lib/firebase';
 interface UserData {
   smsNotifications: boolean;
   emailNotifications: boolean;
-  projects(arg0: string, arg1: string, projects: any): import("@firebase/firestore").QueryConstraint;
+  projects(field: string, operator: string, value: string | number | boolean): import("@firebase/firestore").QueryConstraint;
   uid: string;
   email?: string | null;
   phoneNumber?: string | null;
@@ -36,6 +36,7 @@ interface AuthContextType {
   verifyPhoneNumber: (phoneNumber: string, appVerifier: RecaptchaVerifier) => Promise<string>;
   confirmCode: (verificationId: string, code: string) => Promise<void>;
   setUpRecaptcha: (elementId: string) => RecaptchaVerifier;
+  refreshUserData: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -119,6 +120,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signInWithCredential(auth, credential);
   };
 
+  const refreshUserData = async () => {
+    if (currentUser) {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        setUserData({ uid: currentUser.uid, ...userDoc.data() } as UserData);
+      } else {
+        console.log('No user data found in Firestore');
+        setUserData(null);
+      }
+    }
+  };
+
   const value = {
     currentUser,
     userData,
@@ -129,7 +144,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetPassword,
     verifyPhoneNumber,
     confirmCode,
-    setUpRecaptcha
+    setUpRecaptcha,
+    refreshUserData
   };
 
   return (

@@ -16,7 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const SettingsPage = () => {
-  const { user, userData, refreshUserData } = useAuth();
+  const { currentUser: user, userData, refreshUserData } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');

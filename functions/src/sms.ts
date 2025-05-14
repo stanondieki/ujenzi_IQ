@@ -5,7 +5,23 @@ import axios from 'axios';
 const db = admin.firestore();
 
 // Function to send SMS via Africa's Talking
-export async function sendSMS(to: string | string[], message: string): Promise<any> {
+interface SMSResponse {
+  success: boolean;
+  data: {
+    SMSMessageData: {
+      Message: string;
+      Recipients: Array<{
+        statusCode: number;
+        number: string;
+        status: string;
+        cost: string;
+        messageId: string;
+      }>;
+    };
+  };
+}
+
+export async function sendSMS(to: string | string[], message: string): Promise<SMSResponse> {
   try {
     // Get Africa's Talking config from environment
     const username = functions.config().africastalking.username;
