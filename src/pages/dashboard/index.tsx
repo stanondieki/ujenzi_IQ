@@ -4,18 +4,29 @@ import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import DashboardLayout from '@/components/Layout/dashboard';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { 
-  UserGroupIcon, 
-  DocumentTextIcon,
-  BellAlertIcon,
-  CheckCircleIcon,
-  ChartBarIcon,
-  CalendarIcon,
-  ArrowTrendingUpIcon,
-  ClockIcon,
-  PlusIcon
-} from '@heroicons/react/24/outline';
-import CreateAlert from '@/components/dashboard/CreateAlert';
+  HardHat, 
+  FileText,
+  BellRing,
+  CheckCircle,
+  BarChart2,
+  Calendar,
+  Banknote,
+  Wrench,
+  Clock,
+  Plus,
+  Building2,
+  ShieldAlert,
+  TrendingUp
+} from 'lucide-react';
+
+// Dynamic imports for better performance
+const CreateAlert = dynamic(() => import('@/components/dashboard/CreateAlert'), {
+  loading: () => <div className="animate-pulse rounded-lg bg-gray-100 h-[400px]" />
+});
+
+const DashboardLoading = dynamic(() => import('@/components/dashboard/DashboardLoading'));
 
 interface Project {
   id: string;
@@ -24,6 +35,13 @@ interface Project {
   status: string;
   progress: number;
   lastUpdate: Date;
+  createdAt: Timestamp;
+  location: string;
+  budget: number;
+  spentBudget: number;
+  plannedCompletion: Date;
+  incidents: number;
+  delays: number;
 }
 
 interface Alert {
@@ -34,12 +52,27 @@ interface Alert {
   timestamp: Timestamp;
 }
 
-const DashboardPage = () => {
-  const [projectStats, setProjectStats] = useState({
+
+// Define the StatsCardProps interface
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+interface StatsCardProps {
+  title: string;
+  value: number | string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  trend?: number;
+  color?: string;
+}
+
+
+const DashboardPage = () => {  const [projectStats, setProjectStats] = useState({
     total: 0,
     inProgress: 0,
     completed: 0,
-    delayed: 0
+    delayed: 0,
+    totalBudget: 0,
+    spentBudget: 0,
+    totalIncidents: 0,
+    onSchedule: 0
   });
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
@@ -56,34 +89,53 @@ const DashboardPage = () => {
         // Fetch projects statistics
         const projectsQuery = query(collection(db, 'projects'));
         const projectsSnapshot = await getDocs(projectsQuery);
-        
-        let total = 0;
+          let total = 0;
         let inProgress = 0;
         let completed = 0;
         let delayed = 0;
+        let totalBudget = 0;
+        let spentBudget = 0;
+        let totalIncidents = 0;
+        let onSchedule = 0;
         
         projectsSnapshot.forEach((doc) => {
+          const data = doc.data();
           total++;
-          const status = doc.data().status;
+          
+          // Status counts
+          const status = data.status;
           if (status === 'DONE') completed++;
           else if (status === 'DELAY') delayed++;
           else if (status === 'STARTED') inProgress++;
+          
+          // Budget tracking
+          totalBudget += data.budget || 0;
+          spentBudget += data.spentBudget || 0;
+          
+          // Safety & Schedule tracking
+          totalIncidents += data.incidents || 0;
+          if (!data.delays && status !== 'DELAY') onSchedule++;
         });
-        
-        setProjectStats({
+          setProjectStats({
           total,
           inProgress,
           completed,
-          delayed
+          delayed,
+          totalBudget,
+          spentBudget,
+          totalIncidents,
+          onSchedule
         });
         
         // Fetch recent projects
-        const recentProjectsQuery = query(collection(db, 'projects'), orderBy('lastUpdate', 'desc'), limit(5));
+        const recentProjectsQuery = query(collection(db, 'projects'), orderBy('createdAt', 'desc'), limit(5));
         const recentProjectsSnapshot = await getDocs(recentProjectsQuery);
         
         const recentProjectsData = recentProjectsSnapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
+          createdAt: doc.data().createdAt,
+          lastUpdate: doc.data().lastUpdate
         } as Project));
         
         setRecentProjects(recentProjectsData);
@@ -191,17 +243,25 @@ const DashboardPage = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'DELAY':
-        return <ClockIcon className="h-4 w-4" />;
+        return <Clock className="h-4 w-4" />;
       case 'INCIDENT':
-        return <BellAlertIcon className="h-4 w-4" />;
+        return <BellRing className="h-4 w-4" />;
       case 'DONE':
-        return <CheckCircleIcon className="h-4 w-4" />;
+        return <CheckCircle className="h-4 w-4" />;
       case 'STARTED':
-        return <ArrowTrendingUpIcon className="h-4 w-4" />;
+        return <TrendingUp className="h-4 w-4" />;
       default:
-        return <DocumentTextIcon className="h-4 w-4" />;
+        return <FileText className="h-4 w-4" />;
     }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <DashboardLoading />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -223,11 +283,11 @@ const DashboardPage = () => {
             <div className="bg-white rounded-xl shadow-md p-6 transform transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-l-4 border-blue-500">
               <div className="flex items-center justify-between">
                 <div className="rounded-full bg-blue-100 p-3">
-                  <DocumentTextIcon className="h-6 w-6 text-blue-600" />
+                  <Building2 className="h-6 w-6 text-blue-600" />
                 </div>
                 <span className="text-3xl font-bold text-gray-800">{projectStats.total}</span>
               </div>
-              <p className="text-sm text-gray-600 font-medium mt-4">Total Projects</p>
+              <p className="text-sm text-gray-600 font-medium mt-4">Active Sites</p>
               <div className="mt-2 h-1 w-full bg-blue-100 rounded-full">
                 <div className="h-1 bg-blue-500 rounded-full" style={{ width: '100%' }}></div>
               </div>
@@ -236,39 +296,53 @@ const DashboardPage = () => {
             <div className="bg-white rounded-xl shadow-md p-6 transform transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-l-4 border-indigo-500">
               <div className="flex items-center justify-between">
                 <div className="rounded-full bg-indigo-100 p-3">
-                  <UserGroupIcon className="h-6 w-6 text-indigo-600" />
+                  <Wrench className="h-6 w-6 text-indigo-600" />
                 </div>
                 <span className="text-3xl font-bold text-gray-800">{projectStats.inProgress}</span>
               </div>
-              <p className="text-sm text-gray-600 font-medium mt-4">In Progress</p>
+              <p className="text-sm text-gray-600 font-medium mt-4">Under Construction</p>
               <div className="mt-2 h-1 w-full bg-indigo-100 rounded-full">
                 <div className="h-1 bg-indigo-500 rounded-full" style={{ width: `${projectStats.inProgress / projectStats.total * 100}%` }}></div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-md p-6 transform transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-l-4 border-red-500">
+              <div className="flex items-center justify-between">
+                <div className="rounded-full bg-red-100 p-3">
+                  <ShieldAlert className="h-6 w-6 text-red-600" />
+                </div>
+                <span className="text-3xl font-bold text-gray-800">{projectStats.totalIncidents}</span>
+              </div>
+              <p className="text-sm text-gray-600 font-medium mt-4">Safety Incidents</p>
+              <div className="mt-2 flex items-center">
+                <div className="flex-grow h-1 bg-red-100 rounded-full overflow-hidden">
+                  <div className="h-1 bg-red-500 rounded-full" style={{ width: projectStats.total > 0 ? `${(projectStats.totalIncidents / projectStats.total) * 100}%` : '0%' }}></div>
+                </div>
+                <span className="ml-2 text-xs font-medium text-red-600">
+                  {projectStats.total > 0 ? ((projectStats.totalIncidents / projectStats.total) * 100).toFixed(1) : 0}%
+                </span>
               </div>
             </div>
             
             <div className="bg-white rounded-xl shadow-md p-6 transform transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-l-4 border-green-500">
               <div className="flex items-center justify-between">
                 <div className="rounded-full bg-green-100 p-3">
-                  <CheckCircleIcon className="h-6 w-6 text-green-600" />
+                  <Banknote className="h-6 w-6 text-green-600" />
                 </div>
-                <span className="text-3xl font-bold text-gray-800">{projectStats.completed}</span>
-              </div>
-              <p className="text-sm text-gray-600 font-medium mt-4">Completed</p>
-              <div className="mt-2 h-1 w-full bg-green-100 rounded-full">
-                <div className="h-1 bg-green-500 rounded-full" style={{ width: `${projectStats.completed / projectStats.total * 100}%` }}></div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-xl shadow-md p-6 transform transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-l-4 border-amber-500">
-              <div className="flex items-center justify-between">
-                <div className="rounded-full bg-amber-100 p-3">
-                  <BellAlertIcon className="h-6 w-6 text-amber-600" />
+                <div className="text-right">
+                  <span className="text-3xl font-bold text-gray-800">
+                    {((projectStats.spentBudget / projectStats.totalBudget) * 100).toFixed(1)}%
+                  </span>
                 </div>
-                <span className="text-3xl font-bold text-gray-800">{projectStats.delayed}</span>
               </div>
-              <p className="text-sm text-gray-600 font-medium mt-4">Delayed</p>
-              <div className="mt-2 h-1 w-full bg-amber-100 rounded-full">
-                <div className="h-1 bg-amber-500 rounded-full" style={{ width: `${projectStats.delayed / projectStats.total * 100}%` }}></div>
+              <p className="text-sm text-gray-600 font-medium mt-4">Budget Utilization</p>
+              <div className="mt-2 flex items-center">
+                <div className="flex-grow h-1 bg-green-100 rounded-full overflow-hidden">
+                  <div className="h-1 bg-green-500 rounded-full" style={{ width: `${(projectStats.spentBudget / projectStats.totalBudget) * 100}%` }}></div>
+                </div>
+                <span className="ml-2 text-xs font-medium text-green-600">
+                  ${projectStats.spentBudget.toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
@@ -278,7 +352,7 @@ const DashboardPage = () => {
             <div className="bg-white rounded-xl shadow-md p-6 lg:col-span-2">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center">
-                  <ChartBarIcon className="h-5 w-5 text-indigo-600 mr-2" />
+                  <BarChart2 className="h-5 w-5 text-indigo-600 mr-2" />
                   <h2 className="text-xl font-bold text-gray-800">Recent Projects</h2>
                 </div>
                 <Link href="/projects" className="flex items-center text-indigo-600 hover:text-indigo-800 font-medium text-sm bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors">
@@ -288,7 +362,7 @@ const DashboardPage = () => {
               
               {recentProjects.length === 0 ? (
                 <div className="text-gray-500 text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-                  <DocumentTextIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                  <FileText className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                   <p className="font-medium">No projects found</p>
                   <p className="text-sm mt-1">Add your first project to get started</p>
                 </div>
@@ -303,9 +377,15 @@ const DashboardPage = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-semibold text-gray-800">{project.name}</h3>
-                          <div className="flex items-center text-gray-500 mt-1">
-                            <CalendarIcon className="h-4 w-4 mr-1" />
-                            <p className="text-sm">Code: {project.siteCode}</p>
+                          <div className="flex items-center gap-4 text-gray-500 mt-1">
+                            <div className="flex items-center">
+                              <HardHat className="h-4 w-4 mr-1" />
+                              <p className="text-sm">Code: {project.siteCode}</p>
+                            </div>
+                            <div className="flex items-center">
+                              <Building2 className="h-4 w-4 mr-1" />
+                              <p className="text-sm">{project.location}</p>
+                            </div>
                           </div>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(project.status)}`}>
@@ -329,6 +409,17 @@ const DashboardPage = () => {
                             style={{ width: `${project.progress || 0}%` }}
                           ></div>
                         </div>
+                        
+                        <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+                          <div className="flex items-center">
+                            <Calendar className="h-3.5 w-3.5 mr-1" />
+                            <span>Due: {project.plannedCompletion ? new Date(project.plannedCompletion).toLocaleDateString() : 'Not set'}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Banknote className="h-3.5 w-3.5 mr-1" />
+                            <span>Budget: ${project.budget ? project.budget.toLocaleString() : '0'}</span>
+                          </div>
+                        </div>
                       </div>
                     </Link>
                   ))}
@@ -340,25 +431,24 @@ const DashboardPage = () => {
             <div className="bg-white rounded-xl shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
-                  <BellAlertIcon className="h-5 w-5 text-amber-600 mr-2" />
-                  <h2 className="text-xl font-bold text-gray-800">Recent Alerts</h2>
+                  <BellRing className="h-5 w-5 text-amber-600 mr-2" />
+                  <h2 className="text-xl font-bold text-gray-800">Site Updates</h2>
                 </div>
                 
-                {/* Create Alert Button - Only visible to admins and supervisors */}
                 {canCreateAlerts && (
                   <button 
                     onClick={() => setIsCreateAlertOpen(true)}
                     className="flex items-center bg-amber-100 text-amber-800 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium"
                   >
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    New Alert
+                    <Plus className="h-4 w-4 mr-1" />
+                    Send SMS Update
                   </button>
                 )}
               </div>
               
               {recentAlerts.length === 0 ? (
                 <div className="text-gray-500 text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-                  <BellAlertIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                  <BellRing className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                   <p className="font-medium">No alerts found</p>
                   <p className="text-sm mt-1">You&apos;re all caught up!</p>
                 </div>
@@ -376,13 +466,13 @@ const DashboardPage = () => {
                           {alert.statusType}
                         </span>
                         <span className="text-xs text-gray-500 flex items-center">
-                          <ClockIcon className="h-3 w-3 mr-1" />
+                          <Clock className="h-3 w-3 mr-1" />
                           {formatDate(alert.timestamp)}
                         </span>
                       </div>
                       <p className="text-gray-700 font-medium mt-2">{alert.message}</p>
                       <p className="text-xs text-gray-500 mt-2 flex items-center">
-                        <DocumentTextIcon className="h-3 w-3 mr-1" />
+                        <FileText className="h-3 w-3 mr-1" />
                         Site: {alert.siteCode}
                       </p>
                     </div>
@@ -390,6 +480,7 @@ const DashboardPage = () => {
                 </div>
               )}
             </div>
+
           </div>
 
           {/* Create Alert Modal */}
